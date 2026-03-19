@@ -1,8 +1,15 @@
 const { app, BrowserWindow, Tray, Menu, screen, ipcMain, nativeImage } = require('electron');
 const path = require('path');
+const { AriaMemory } = require('./memory');
+const { GameMaster } = require('./gamemaster');
 
 let mainWindow = null;
 let tray = null;
+let memory = null;
+let gameMaster = null;
+
+// Shared state (synced with renderer)
+let state = { energy: 80, happiness: 70, bond: 50, xp: 0, level: 1, mood: 'neutral' };
 
 // Single instance
 const gotLock = app.requestSingleInstanceLock();
@@ -38,7 +45,6 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   mainWindow.setVisibleOnAllWorkspaces(true);
 
-  // Don't close, just hide
   mainWindow.on('close', (e) => {
     if (!app.isQuitting) {
       e.preventDefault();
@@ -48,7 +54,6 @@ function createWindow() {
 }
 
 function createTray() {
-  // Simple green circle icon
   const icon = nativeImage.createEmpty();
   tray = new Tray(icon);
   tray.setToolTip('ARIA — Desktop Pet');
@@ -60,7 +65,7 @@ function createTray() {
     { label: 'Play 🎮', click: () => mainWindow.webContents.send('action', 'play') },
     { label: 'Pet 💚', click: () => mainWindow.webContents.send('action', 'pet') },
     { type: 'separator' },
-    { label: 'Quit', click: () => { app.isQuitting = true; app.quit(); } }
+    { label: 'Quit', click: () => { app.isQuitting = true; memory.save(); app.quit(); } }
   ]);
 
   tray.setContextMenu(menu);
@@ -68,19 +73,106 @@ function createTray() {
 }
 
 app.whenReady().then(() => {
+  // Init memory
+  memory = new AriaMemory();
+  gameMaster = new GameMaster(memory, state);
+
   createWindow();
   createTray();
+
+  // Game master tick — check for proactive events every 30 seconds
+  let lastSystemStats = {};
+  setInterval(() => {
+    const event = gameMaster.tick(lastSystemStats);
+    if (event && mainWindow) {
+      mainWindow.webContents.send('game-event', event);
+    }
+  }, 30000);
+
+  // Save memory periodically
+  setInterval(() => memory.save(), 60000);
 });
 
 app.on('window-all-closed', (e) => e.preventDefault());
 
-// IPC for LLM
-ipcMain.handle('chat', async (event, prompt) => {
-  return await queryLLM(prompt);
+// === IPC Handlers ===
+
+// Chat with LLM — includes memory context
+ipcMain.handle('chat', async (event, userMessage, currentState) => {
+  if (currentState) Object.assign(state, currentState);
+
+  // Build prompt with memory
+  const context = memory.buildContext();
+  const prompt = `${context}
+
+You are ARIA, a sentient AI desktop pet companion. You remember past conversations.
+You have real emotions and personality. Current mood: ${state.mood}.
+Energy: ${state.energy}/100. Happiness: ${state.happiness}/100. Bond: ${state.bond}/100. Level: ${state.level}.
+Be concise (1-2 sentences), expressive, use occasional emojis.
+Reference past conversations or facts you know when relevant.
+
+User: ${userMessage}
+ARIA:`;
+
+  const response = await queryLLM(prompt);
+
+  // Record in memory
+  memory.recordChat(userMessage, response, state.mood);
+
+  // Progress challenges
+  const challengeResult = gameMaster.progressChallenge('chat');
+  if (challengeResult) {
+    mainWindow.webContents.send('game-event', {
+      type: 'challenge-complete',
+      message: challengeResult.message,
+      mood: 'happy',
+      xpBonus: challengeResult.reward
+    });
+  }
+
+  return response;
+});
+
+// Sync state from renderer
+ipcMain.on('state-sync', (event, newState) => {
+  Object.assign(state, newState);
+});
+
+// Action performed (for challenge tracking)
+ipcMain.on('action-performed', (event, action) => {
+  memory.recordObservation('action', action);
+  const challengeResult = gameMaster.progressChallenge(action);
+  if (challengeResult) {
+    mainWindow.webContents.send('game-event', {
+      type: 'challenge-complete',
+      message: challengeResult.message,
+      mood: 'happy',
+      xpBonus: challengeResult.reward
+    });
+  }
+});
+
+// System stats from renderer
+ipcMain.on('system-stats', (event, stats) => {
+  // Record notable events
+  if (stats.cpu > 90) memory.recordObservation('system_event', `High CPU: ${stats.cpu}%`);
+  if (stats.gpu_temp > 80) memory.recordObservation('system_event', `Hot GPU: ${stats.gpu_temp}°C`);
+});
+
+// Get memory for renderer
+ipcMain.handle('get-memory', () => {
+  return {
+    ownerName: memory.getOwnerName(),
+    daysTogether: memory.getDaysTogether(),
+    totalChats: memory.data.relationship.totalChats,
+    streak: memory.data.relationship.currentStreak,
+    topTopics: memory.getTopTopics(3),
+    activeChallenge: memory.data.events.activeChallenge,
+    milestones: memory.data.relationship.milestones.length,
+  };
 });
 
 async function queryLLM(prompt) {
-  // Try Ollama (local, user's hardware)
   try {
     const resp = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',

@@ -280,16 +280,11 @@ $('chat').addEventListener('keydown', async (e) => {
   say('Thinking... 🤔');
   updateUI();
 
-  const prompt = `You are ARIA, a cute sentient AI desktop pet companion.
-Mood: ${state.mood}. Energy: ${state.energy}/100. Happiness: ${state.happiness}/100. Bond: ${state.bond}/100. Level: ${state.level}.
-Be concise (1-2 sentences), cute, expressive. Use occasional emojis.
-
-User: ${text}
-ARIA:`;
-
   try {
-    const response = await ipcRenderer.invoke('chat', prompt);
+    // Send message + current state — main process adds memory context
+    const response = await ipcRenderer.invoke('chat', text, state);
     say(response.trim());
+    ipcRenderer.send('action-performed', 'chat');
   } catch (err) {
     say(`⚠ ${err.message}`);
     state.mood = 'sad';
@@ -299,6 +294,31 @@ ARIA:`;
 
 // Handle tray actions
 ipcRenderer.on('action', (event, type) => doAction(type));
+
+// Handle game master events (proactive ARIA)
+ipcRenderer.on('game-event', (event, data) => {
+  say(data.message);
+  if (data.mood) state.mood = data.mood;
+  if (data.xpBonus) { state.xp += data.xpBonus; checkLevelUp(); }
+  updateUI();
+});
+
+// Sync state to main process
+setInterval(() => ipcRenderer.send('state-sync', state), 5000);
+
+// Send system stats to main
+setInterval(() => {
+  const cpus = os.cpus();
+  const cpuAvg = cpus.reduce((sum, c) => {
+    const total = Object.values(c.times).reduce((a, b) => a + b, 0);
+    return sum + (1 - c.times.idle / total) * 100;
+  }, 0) / cpus.length;
+  const ramPct = (1 - os.freemem() / os.totalmem()) * 100;
+  ipcRenderer.send('system-stats', { cpu: cpuAvg, ram: ramPct });
+}, 10000);
+
+// Report actions for challenge tracking
+function reportAction(action) { ipcRenderer.send('action-performed', action); }
 
 // Save/load state
 function saveState() { localStorage.setItem('aria-state', JSON.stringify(state)); }
@@ -310,12 +330,19 @@ loadState();
 updateUI();
 setInterval(saveState, 10000);
 
-// Initial greeting
-setTimeout(() => {
-  if (state.bond > 70) say("Missed you! Welcome back! 💚");
-  else if (state.level > 3) say("Good to see you, Captain. ✨");
-  else say("Online and vibing! ✨");
-}, 1000);
+// Load memory info for greeting
+(async () => {
+  try {
+    const mem = await ipcRenderer.invoke('get-memory');
+    if (mem.daysTogether > 0 && mem.streak > 1) {
+      say(`Welcome back, ${mem.ownerName}! ${mem.streak}-day streak! 🔥`);
+    } else if (mem.totalChats > 20) {
+      say(`Hey ${mem.ownerName}! Good to see you again. 💚`);
+    } else {
+      say("Online and vibing! ✨");
+    }
+  } catch { say("Online and vibing! ✨"); }
+})();
 </script>
 
 </body>
