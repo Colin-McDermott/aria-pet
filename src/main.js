@@ -80,7 +80,7 @@ ipcMain.handle('chat', async (event, prompt) => {
 });
 
 async function queryLLM(prompt) {
-  // Try local Ollama first (zero overhead — user's own hardware)
+  // Try Ollama (local, user's hardware)
   try {
     const resp = await fetch('http://localhost:11434/api/generate', {
       method: 'POST',
@@ -94,16 +94,10 @@ async function queryLLM(prompt) {
     });
     if (resp.ok) {
       const data = await resp.json();
-      return data.response || '...';
+      if (data.response) return data.response;
     }
-  } catch (e) {}
-
-  // Fallback: bundled model via node-llama-cpp (TODO: implement)
-  // For now return canned response
-  const fallbacks = [
-    "I'm here but my brain needs Ollama to think deeply! Run 'ollama serve' for me? 🧠",
-    "My thoughts are fuzzy without a language model... but I still love you! 💚",
-    "Install Ollama and I'll be SO much smarter, I promise! ✨",
-  ];
-  return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+    throw new Error('Ollama returned empty response');
+  } catch (e) {
+    throw new Error(`LLM unavailable: ${e.message}. Install Ollama: https://ollama.com`);
+  }
 }

@@ -287,8 +287,14 @@ Be concise (1-2 sentences), cute, expressive. Use occasional emojis.
 User: ${text}
 ARIA:`;
 
-  const response = await ipcRenderer.invoke('chat', prompt);
-  say(response.trim());
+  try {
+    const response = await ipcRenderer.invoke('chat', prompt);
+    say(response.trim());
+  } catch (err) {
+    say(`⚠ ${err.message}`);
+    state.mood = 'sad';
+    updateUI();
+  }
 });
 
 // Handle tray actions
