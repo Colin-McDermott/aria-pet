@@ -459,6 +459,19 @@ setInterval(() => {
   $('sys').textContent = `CPU ${cpuAvg.toFixed(0)}% | RAM ${ramPct.toFixed(0)}% | Lv.${state.level}`;
   if (cpuAvg > 30 && creature) state.energy = Math.min(creature.stats.maxEnergy, state.energy + 1);
   ipcRenderer.send('system-stats', { cpu: cpuAvg, ram: ramPct });
+
+  // Feed system stats into creature animation
+  if (renderer) {
+    renderer.updateInputs({
+      cpu: cpuAvg,
+      ram: ramPct,
+      energy: state.energy,
+      happiness: state.happiness,
+      bond: state.bond,
+      mood: state.mood,
+      timeOfDay: new Date().getHours(),
+    });
+  }
 }, 5000);
 
 // === Chat ===

@@ -16,6 +16,36 @@ class CreatureRenderer {
     this.blinking = false;
     this.particles = [];
     this.animating = false;
+
+    // === Reactive inputs — these drive the animation ===
+    this.inputs = {
+      mouseX: 0,          // 0-1, mouse position relative to canvas
+      mouseY: 0,
+      mouseNear: false,    // is mouse hovering over creature
+      cpu: 0,              // 0-100
+      gpu: 0,              // 0-100
+      gpuTemp: 0,          // celsius
+      ram: 0,              // 0-100
+      energy: 80,          // pet stat
+      happiness: 70,
+      bond: 50,
+      mood: 'neutral',     // happy/sad/alert/tired/neutral
+      typing: false,       // is user typing right now
+      typingSpeed: 0,      // chars per second
+      musicPlaying: false,
+      timeOfDay: 12,       // hour 0-23
+    };
+
+    // Track mouse on canvas
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      this.inputs.mouseX = (e.clientX - rect.left) / rect.width;
+      this.inputs.mouseY = (e.clientY - rect.top) / rect.height;
+      this.inputs.mouseNear = true;
+    });
+    canvas.addEventListener('mouseleave', () => {
+      this.inputs.mouseNear = false;
+    });
   }
 
   setCreature(creature) {
@@ -71,10 +101,38 @@ class CreatureRenderer {
     const glow = this.hsl(v.primaryHue, v.saturation, v.brightness + 0.3);
     const eyeColor = this.hsl(v.secondaryHue, 0.9, 0.6);
 
-    // Breathing animation
-    const breathe = 1 + Math.sin(this.time * 2) * 0.03;
-    const bob = Math.sin(this.time * 1.5) * 3;
-    const scale = v.size * breathe;
+    // === Reactive animation ===
+    const inp = this.inputs;
+
+    // Breathing — faster when CPU is high, slower when tired
+    const breathSpeed = 2 + (inp.cpu / 100) * 3;
+    const breathAmount = 0.02 + (inp.cpu / 100) * 0.03;
+    const breathe = 1 + Math.sin(this.time * breathSpeed) * breathAmount;
+
+    // Bobbing — more erratic when alert, calm when happy
+    const bobSpeed = inp.mood === 'alert' ? 3 : inp.mood === 'happy' ? 1 : 1.5;
+    const bobAmount = inp.mood === 'alert' ? 5 : 3;
+    const bob = Math.sin(this.time * bobSpeed) * bobAmount;
+
+    // Scale pulses with GPU temp
+    const heatPulse = inp.gpuTemp > 70 ? Math.sin(this.time * 4) * 0.02 * (inp.gpuTemp - 70) / 30 : 0;
+    const scale = v.size * breathe + heatPulse;
+
+    // Eyes follow mouse
+    this._eyeLookX = inp.mouseNear ? (inp.mouseX - 0.5) * 4 : Math.sin(this.time * 0.3) * 1;
+    this._eyeLookY = inp.mouseNear ? (inp.mouseY - 0.5) * 3 : Math.cos(this.time * 0.2) * 0.5;
+
+    // Color shift based on mood/stats
+    this._moodGlow = inp.mood === 'happy' ? 0.15 : inp.mood === 'alert' ? -0.1 : inp.mood === 'sad' ? -0.05 : 0;
+
+    // Particle speed scales with system activity
+    this._particleSpeed = 0.5 + (inp.cpu / 100) * 2;
+
+    // Wobble intensity from RAM usage
+    this._wobble = 1 + (inp.ram / 100) * 0.5;
+
+    // Time of day affects brightness
+    const nightDim = (inp.timeOfDay >= 22 || inp.timeOfDay < 6) ? 0.7 : 1.0;
 
     ctx.save();
     ctx.translate(cx, cy + bob);
@@ -111,10 +169,11 @@ class CreatureRenderer {
   // === Body Types ===
 
   drawBlob(ctx, primary, secondary, v) {
+    const wobble = this._wobble || 1;
     ctx.beginPath();
     for (let i = 0; i < 32; i++) {
       const a = (i / 32) * Math.PI * 2;
-      const r = 40 + Math.sin(a * 3 + this.time * 2) * 5 + Math.sin(a * 5 + this.time) * 3;
+      const r = 40 + Math.sin(a * 3 + this.time * 2) * 5 * wobble + Math.sin(a * 5 + this.time) * 3 * wobble;
       const x = Math.cos(a) * r;
       const y = Math.sin(a) * r;
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
@@ -178,10 +237,11 @@ class CreatureRenderer {
   }
 
   drawFlame(ctx, primary, secondary, v) {
+    const intensity = 1 + (this.inputs.cpu || 0) / 100; // flames grow with CPU
     for (let layer = 3; layer >= 0; layer--) {
       ctx.beginPath();
-      const r = 25 + layer * 8;
-      const topOffset = -15 - layer * 10 + Math.sin(this.time * 5 + layer) * 8;
+      const r = (25 + layer * 8) * intensity;
+      const topOffset = (-15 - layer * 10) * intensity + Math.sin(this.time * 5 + layer) * 8 * intensity;
       ctx.moveTo(-r, 20);
       ctx.quadraticCurveTo(-r * 0.7, topOffset, 0, topOffset - 15);
       ctx.quadraticCurveTo(r * 0.7, topOffset, r, 20);
@@ -343,10 +403,12 @@ class CreatureRenderer {
       ctx.fillStyle = '#0a0a0a';
       ctx.fill();
 
-      // Pupil
+      // Pupil — follows mouse or looks around
       if (!this.blinking) {
+        const lookX = this._eyeLookX || 0;
+        const lookY = this._eyeLookY || 0;
         ctx.beginPath();
-        ctx.arc(ex + 1, ey - 1, eyeSize * 0.4, 0, Math.PI * 2);
+        ctx.arc(ex + lookX, ey + lookY, eyeSize * 0.4, 0, Math.PI * 2);
         ctx.fillStyle = eyeColor;
         ctx.fill();
       }
@@ -443,9 +505,10 @@ class CreatureRenderer {
   // === Particles ===
 
   drawParticles(ctx, color) {
+    const speed = this._particleSpeed || 1;
     for (const p of this.particles) {
-      p.x += p.vx;
-      p.y += p.vy;
+      p.x += p.vx * speed;
+      p.y += p.vy * speed;
       p.alpha = 0.3 + Math.sin(this.time * 2 + p.phase) * 0.3;
 
       if (p.x < 0 || p.x > this.canvas.width) p.vx *= -1;
@@ -468,4 +531,12 @@ class CreatureRenderer {
 }
 
 // Export for Node/Electron
+  /**
+   * Update reactive inputs. Call this from your game loop / system monitor.
+   */
+  updateInputs(data) {
+    Object.assign(this.inputs, data);
+  }
+}
+
 if (typeof module !== 'undefined') module.exports = { CreatureRenderer };
