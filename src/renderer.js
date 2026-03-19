@@ -174,6 +174,9 @@ class CreatureRenderer {
 
     ctx.clearRect(0, 0, w, h);
 
+    // Draw environment behind creature
+    this.drawEnvironment(ctx, w, h);
+
     // Colors from creature data
     const primary = this.hsl(v.primaryHue, v.saturation, v.brightness);
     const secondary = this.hsl(v.secondaryHue, v.saturation, v.brightness + 0.1);
@@ -632,6 +635,301 @@ class CreatureRenderer {
 
   hsl(h, s, l) {
     return `hsl(${Math.floor(h * 360)}, ${Math.floor(s * 100)}%, ${Math.floor(l * 100)}%)`;
+  }
+
+  // === Environment — the creature's home biome ===
+  drawEnvironment(ctx, w, h) {
+    const v = this.creature.visuals;
+    const inp = this.inputs;
+    const t = this.time;
+
+    // Time of day affects sky
+    const hour = inp.timeOfDay || 12;
+    const isNight = hour >= 21 || hour < 6;
+    const isDusk = (hour >= 18 && hour < 21) || (hour >= 6 && hour < 8);
+
+    // Background gradient based on species biome
+    switch (v.bodyType) {
+      case 'blob': case 'jelly': // Deep ocean
+        this._drawOcean(ctx, w, h, t, isNight); break;
+      case 'angular': case 'star': // Crystal cave
+        this._drawCrystalCave(ctx, w, h, t, isNight); break;
+      case 'flame': // Volcanic
+        this._drawVolcanic(ctx, w, h, t); break;
+      case 'mushroom': // Forest floor
+        this._drawForest(ctx, w, h, t, isNight, isDusk); break;
+      case 'mech': // Cyber grid
+        this._drawCyber(ctx, w, h, t); break;
+      case 'shadow': // Void
+        this._drawVoid(ctx, w, h, t); break;
+      default: // Space
+        this._drawSpace(ctx, w, h, t, isNight);
+    }
+
+    // Mood affects environment
+    if (inp.mood === 'happy') {
+      // Subtle warm glow
+      const grad = ctx.createRadialGradient(w/2, h/2, 10, w/2, h/2, w/2);
+      grad.addColorStop(0, 'rgba(45, 204, 112, 0.05)');
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+    } else if (inp.mood === 'sad') {
+      // Rain
+      ctx.strokeStyle = 'rgba(100, 150, 200, 0.15)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        const rx = ((t * 50 + i * 37) % w);
+        const ry = ((t * 80 + i * 53) % h);
+        ctx.beginPath();
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(rx - 2, ry + 8);
+        ctx.stroke();
+      }
+    } else if (inp.mood === 'alert') {
+      // Warning pulse
+      const pulse = Math.sin(t * 4) * 0.03;
+      ctx.fillStyle = `rgba(231, 76, 60, ${pulse > 0 ? pulse : 0})`;
+      ctx.fillRect(0, 0, w, h);
+    }
+  }
+
+  _drawOcean(ctx, w, h, t, isNight) {
+    // Deep gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, isNight ? '#030810' : '#051525');
+    grad.addColorStop(0.5, isNight ? '#061020' : '#082040');
+    grad.addColorStop(1, isNight ? '#040818' : '#0a1830');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Floating bubbles
+    for (let i = 0; i < 6; i++) {
+      const bx = (Math.sin(t * 0.3 + i * 2) * 0.3 + 0.5) * w;
+      const by = ((t * 10 + i * 30) % (h + 20)) - 10;
+      const br = 2 + Math.sin(i) * 1.5;
+      ctx.beginPath();
+      ctx.arc(bx, h - by, br, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+
+    // Wavy light rays from top
+    ctx.globalAlpha = 0.04;
+    for (let i = 0; i < 3; i++) {
+      const x = w * 0.2 + i * w * 0.3 + Math.sin(t + i) * 10;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x - 15, h);
+      ctx.lineTo(x + 15, h);
+      ctx.closePath();
+      ctx.fillStyle = '#4090ff';
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  _drawCrystalCave(ctx, w, h, t, isNight) {
+    const grad = ctx.createRadialGradient(w/2, h/2, 10, w/2, h/2, w);
+    grad.addColorStop(0, isNight ? '#0a0515' : '#120828');
+    grad.addColorStop(1, isNight ? '#050310' : '#08041a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Crystal formations
+    const rng = this._envRng || (this._envRng = this._makeEnvRng());
+    for (let i = 0; i < 5; i++) {
+      const cx = rng[i * 2] * w;
+      const cy = h - rng[i * 2 + 1] * h * 0.3;
+      const ch = 10 + rng[i * 3] * 25;
+      const cw = 3 + rng[i * 3 + 1] * 5;
+
+      ctx.beginPath();
+      ctx.moveTo(cx - cw, cy);
+      ctx.lineTo(cx, cy - ch);
+      ctx.lineTo(cx + cw, cy);
+      ctx.closePath();
+
+      const glow = Math.sin(t * 1.5 + i * 1.3) * 0.15 + 0.15;
+      ctx.fillStyle = `rgba(140, 100, 220, ${glow})`;
+      ctx.fill();
+    }
+  }
+
+  _drawVolcanic(ctx, w, h, t) {
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#150505');
+    grad.addColorStop(0.7, '#1a0a05');
+    grad.addColorStop(1, '#251005');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Lava cracks at bottom
+    ctx.strokeStyle = 'rgba(255, 80, 20, 0.15)';
+    ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      const y = h - 10 - i * 5;
+      ctx.moveTo(0, y);
+      for (let x = 0; x < w; x += 10) {
+        ctx.lineTo(x, y + Math.sin(x * 0.1 + t + i) * 3);
+      }
+      ctx.stroke();
+    }
+
+    // Ember particles rising
+    for (let i = 0; i < 5; i++) {
+      const ex = ((t * 15 + i * 40) % w);
+      const ey = h - ((t * 20 + i * 35) % h);
+      ctx.beginPath();
+      ctx.arc(ex, ey, 1, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, ${100 + i * 30}, 0, ${0.3 + Math.sin(t + i) * 0.2})`;
+      ctx.fill();
+    }
+  }
+
+  _drawForest(ctx, w, h, t, isNight, isDusk) {
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    if (isNight) { grad.addColorStop(0, '#030808'); grad.addColorStop(1, '#051510'); }
+    else if (isDusk) { grad.addColorStop(0, '#15100a'); grad.addColorStop(1, '#0a1510'); }
+    else { grad.addColorStop(0, '#081510'); grad.addColorStop(1, '#0a2015'); }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Ground
+    ctx.fillStyle = isNight ? '#0a1a10' : '#0f2518';
+    ctx.fillRect(0, h - 20, w, 20);
+
+    // Tiny mushrooms / plants on ground
+    const rng = this._envRng || (this._envRng = this._makeEnvRng());
+    for (let i = 0; i < 4; i++) {
+      const px = rng[i] * w;
+      const ph = 5 + rng[i + 5] * 10;
+      // Stem
+      ctx.strokeStyle = 'rgba(40, 80, 50, 0.4)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(px, h - 20);
+      ctx.lineTo(px, h - 20 - ph);
+      ctx.stroke();
+      // Cap
+      ctx.beginPath();
+      ctx.arc(px, h - 20 - ph, 3 + rng[i + 3] * 3, Math.PI, 0);
+      ctx.fillStyle = `rgba(${60 + i * 20}, ${100 + i * 15}, ${60 + i * 10}, 0.3)`;
+      ctx.fill();
+    }
+
+    // Fireflies at night
+    if (isNight) {
+      for (let i = 0; i < 4; i++) {
+        const fx = (Math.sin(t * 0.5 + i * 1.7) * 0.3 + 0.5) * w;
+        const fy = (Math.cos(t * 0.3 + i * 2.1) * 0.2 + 0.4) * h;
+        const fa = Math.sin(t * 3 + i * 2) * 0.3 + 0.3;
+        ctx.beginPath();
+        ctx.arc(fx, fy, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200, 255, 100, ${fa})`;
+        ctx.fill();
+      }
+    }
+  }
+
+  _drawCyber(ctx, w, h, t) {
+    ctx.fillStyle = '#050810';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(45, 204, 112, 0.06)';
+    ctx.lineWidth = 0.5;
+    const gridSize = 20;
+    for (let x = 0; x < w; x += gridSize) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let y = 0; y < h; y += gridSize) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Scanning line
+    const scanY = (t * 30) % h;
+    ctx.strokeStyle = 'rgba(45, 204, 112, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, scanY); ctx.lineTo(w, scanY); ctx.stroke();
+
+    // Data points
+    for (let i = 0; i < 3; i++) {
+      const dx = ((t * 10 + i * 50) % w);
+      const dy = ((i * 47) % h);
+      ctx.fillStyle = 'rgba(45, 204, 112, 0.3)';
+      ctx.fillRect(dx, dy, 2, 2);
+    }
+  }
+
+  _drawVoid(ctx, w, h, t) {
+    // Pure dark with subtle warping
+    const grad = ctx.createRadialGradient(w/2, h/2, 5, w/2, h/2, w/2);
+    grad.addColorStop(0, '#08050a');
+    grad.addColorStop(0.5, '#050308');
+    grad.addColorStop(1, '#020105');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Void tendrils
+    ctx.strokeStyle = 'rgba(100, 50, 150, 0.08)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      for (let step = 0; step < 20; step++) {
+        const a = (step / 20) * Math.PI * 2 + t * 0.3 + i * 2;
+        const r = 20 + step * 3;
+        const x = w/2 + Math.cos(a) * r;
+        const y = h/2 + Math.sin(a) * r;
+        step === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // Distant stars (faint)
+    for (let i = 0; i < 8; i++) {
+      const sx = ((i * 29 + 13) % w);
+      const sy = ((i * 37 + 7) % h);
+      ctx.fillStyle = `rgba(150, 100, 200, ${0.1 + Math.sin(t + i) * 0.08})`;
+      ctx.fillRect(sx, sy, 1, 1);
+    }
+  }
+
+  _drawSpace(ctx, w, h, t, isNight) {
+    ctx.fillStyle = '#030508';
+    ctx.fillRect(0, 0, w, h);
+
+    // Stars
+    for (let i = 0; i < 15; i++) {
+      const sx = ((i * 23 + 7) % w);
+      const sy = ((i * 31 + 11) % h);
+      const sa = 0.15 + Math.sin(t * 0.5 + i) * 0.1;
+      ctx.fillStyle = `rgba(200, 220, 255, ${sa})`;
+      ctx.fillRect(sx, sy, 1, 1);
+    }
+
+    // Nebula glow
+    const nx = w / 2 + Math.sin(t * 0.1) * 20;
+    const ny = h / 3;
+    const nGrad = ctx.createRadialGradient(nx, ny, 5, nx, ny, 50);
+    nGrad.addColorStop(0, 'rgba(100, 50, 150, 0.06)');
+    nGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = nGrad;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  _makeEnvRng() {
+    // Deterministic random values for environment decorations
+    const seed = this.creature ? this.creature.seed : 42;
+    const vals = [];
+    let s = typeof seed === 'string' ? seed.length * 7 : seed;
+    for (let i = 0; i < 20; i++) {
+      s = (s * 1103515245 + 12345) & 0x7fffffff;
+      vals.push(s / 0x7fffffff);
+    }
+    return vals;
   }
 
   /**
