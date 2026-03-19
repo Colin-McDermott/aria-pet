@@ -295,6 +295,27 @@ function init() {
     loadCreature(seed);
   }
 
+  // Poke reactions
+  renderer.onPoke = (type) => {
+    const mult = creature ? creature.stats.xpMultiplier : 1;
+    if (type === 'poke') {
+      const reactions = ["Hey! 😮", "Ow! 😣", "Hehe~ 😊", "Boop! 👆", "That tickles!", "*squish*", "Eep! 😲"];
+      say(reactions[Math.floor(Math.random() * reactions.length)]);
+      state.happiness = Math.min(creature ? creature.stats.maxHappiness : 100, state.happiness + 2);
+      state.xp += Math.floor(1 * mult);
+    } else if (type === 'tickle') {
+      say("Ahahaha stop it!! 🤣🤣");
+      state.happiness = Math.min(creature ? creature.stats.maxHappiness : 100, state.happiness + 5);
+      state.bond = Math.min(creature ? creature.stats.maxBond : 100, state.bond + 2);
+      state.xp += Math.floor(3 * mult);
+    } else if (type === 'release') {
+      if (renderer.jiggle > 10) say("Whooooaaaa! 🌀");
+    }
+    checkLevelUp();
+    updateUI();
+    ipcRenderer.send('action-performed', type);
+  };
+
   updateUI();
 }
 

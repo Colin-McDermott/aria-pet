@@ -36,16 +36,95 @@ class CreatureRenderer {
       timeOfDay: 12,       // hour 0-23
     };
 
-    // Track mouse on canvas
+    // === Mouse interaction ===
+    this.pokeForce = 0;        // how hard it was just poked
+    this.pokeAngle = 0;        // direction of poke
+    this.squish = 0;           // squish from click
+    this.dragOffset = { x: 0, y: 0 }; // displacement from dragging
+    this.isDragging = false;
+    this.isHovering = false;
+    this.jiggle = 0;           // residual jiggle from poke
+    this.mouseTrail = [];      // recent mouse positions for momentum
+
     canvas.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
-      this.inputs.mouseX = (e.clientX - rect.left) / rect.width;
-      this.inputs.mouseY = (e.clientY - rect.top) / rect.height;
+      const mx = (e.clientX - rect.left) / rect.width;
+      const my = (e.clientY - rect.top) / rect.height;
+      this.inputs.mouseX = mx;
+      this.inputs.mouseY = my;
       this.inputs.mouseNear = true;
+      this.isHovering = true;
+
+      // Track mouse trail for momentum
+      this.mouseTrail.push({ x: mx, y: my, t: Date.now() });
+      if (this.mouseTrail.length > 10) this.mouseTrail.shift();
+
+      // If dragging, move the creature
+      if (this.isDragging) {
+        this.dragOffset.x = (mx - 0.5) * 40;
+        this.dragOffset.y = (my - 0.5) * 40;
+      }
     });
+
     canvas.addEventListener('mouseleave', () => {
       this.inputs.mouseNear = false;
+      this.isHovering = false;
+      this.isDragging = false;
+      // Snap back with jiggle
+      this.jiggle = Math.abs(this.dragOffset.x) + Math.abs(this.dragOffset.y);
+      this.dragOffset = { x: 0, y: 0 };
     });
+
+    canvas.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) / rect.width;
+      const my = (e.clientY - rect.top) / rect.height;
+
+      // Check if clicking on the creature (center area)
+      const dx = mx - 0.5, dy = my - 0.5;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 0.35) {
+        // Poke!
+        this.pokeForce = 15;
+        this.pokeAngle = Math.atan2(dy, dx);
+        this.squish = 0.3;
+        this.isDragging = true;
+
+        // Poke callback
+        if (this.onPoke) this.onPoke('poke');
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      if (this.isDragging) {
+        // Calculate throw momentum from mouse trail
+        const trail = this.mouseTrail;
+        if (trail.length >= 2) {
+          const last = trail[trail.length - 1];
+          const prev = trail[trail.length - 2];
+          const throwX = (last.x - prev.x) * 200;
+          const throwY = (last.y - prev.y) * 200;
+          this.jiggle = Math.abs(throwX) + Math.abs(throwY);
+        }
+        this.isDragging = false;
+        // Snap back
+        this.dragOffset = { x: 0, y: 0 };
+
+        if (this.onPoke) this.onPoke('release');
+      }
+    });
+
+    // Double-click = tickle
+    canvas.addEventListener('dblclick', () => {
+      this.pokeForce = 25;
+      this.jiggle = 30;
+      this.squish = 0.5;
+      if (this.onPoke) this.onPoke('tickle');
+    });
+
+    // Poke callback — set from outside
+    this.onPoke = null;
   }
 
   setCreature(creature) {
@@ -134,9 +213,35 @@ class CreatureRenderer {
     // Time of day affects brightness
     const nightDim = (inp.timeOfDay >= 22 || inp.timeOfDay < 6) ? 0.7 : 1.0;
 
+    // === Poke / drag / jiggle physics ===
+    // Decay poke force
+    this.pokeForce *= 0.85;
+    this.squish *= 0.9;
+    this.jiggle *= 0.92;
+
+    // Poke displacement
+    const pokeX = Math.cos(this.pokeAngle) * this.pokeForce;
+    const pokeY = Math.sin(this.pokeAngle) * this.pokeForce;
+
+    // Jiggle (residual wobble after poke/release)
+    const jigX = Math.sin(this.time * 15) * this.jiggle * 0.3;
+    const jigY = Math.cos(this.time * 12) * this.jiggle * 0.2;
+
+    // Drag offset (creature follows mouse when dragged)
+    const dragX = this.dragOffset.x;
+    const dragY = this.dragOffset.y;
+
+    // Squish (flatten on click, stretch on release)
+    const squishX = 1 + this.squish * 0.3;
+    const squishY = 1 - this.squish * 0.2;
+
+    // Hover — creature leans toward mouse slightly
+    const leanX = this.isHovering && !this.isDragging ? (inp.mouseX - 0.5) * 8 : 0;
+    const leanY = this.isHovering && !this.isDragging ? (inp.mouseY - 0.5) * 5 : 0;
+
     ctx.save();
-    ctx.translate(cx, cy + bob);
-    ctx.scale(scale, scale);
+    ctx.translate(cx + pokeX + jigX + dragX + leanX, cy + bob + pokeY + jigY + dragY + leanY);
+    ctx.scale(scale * squishX, scale * squishY);
 
     // === Draw Aura ===
     this.drawAura(ctx, v, glow);
