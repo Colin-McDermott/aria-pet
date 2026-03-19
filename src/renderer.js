@@ -528,9 +528,7 @@ class CreatureRenderer {
   hsl(h, s, l) {
     return `hsl(${Math.floor(h * 360)}, ${Math.floor(s * 100)}%, ${Math.floor(l * 100)}%)`;
   }
-}
 
-// Export for Node/Electron
   /**
    * Update reactive inputs. Call this from your game loop / system monitor.
    */

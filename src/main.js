@@ -46,6 +46,11 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   mainWindow.setVisibleOnAllWorkspaces(true);
 
+  // Debug — remove for production
+  if (process.argv.includes('--dev')) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
   mainWindow.on('close', (e) => {
     if (!app.isQuitting) {
       e.preventDefault();

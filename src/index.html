@@ -278,23 +278,22 @@ let renderer = null;
 
 // === Init ===
 function init() {
-  // Load or generate creature
-  let seed = localStorage.getItem('aria-seed');
-  if (!seed) {
-    seed = String(Date.now());
-    localStorage.setItem('aria-seed', seed);
-    // Show unbox for first time
-    setTimeout(() => showUnbox(seed), 500);
-  } else {
-    loadCreature(seed);
-  }
+  // Init renderer FIRST
+  renderer = new CreatureRenderer($('creature'));
 
   // Load state
   const saved = localStorage.getItem('aria-state');
   if (saved) Object.assign(state, JSON.parse(saved));
 
-  // Init renderer
-  renderer = new CreatureRenderer($('creature'));
+  // Load or generate creature
+  let seed = localStorage.getItem('aria-seed');
+  if (!seed) {
+    seed = String(Date.now());
+    localStorage.setItem('aria-seed', seed);
+    setTimeout(() => showUnbox(seed), 500);
+  } else {
+    loadCreature(seed);
+  }
 
   updateUI();
 }
