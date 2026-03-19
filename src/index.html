@@ -268,86 +268,78 @@
 const { ipcRenderer } = require('electron');
 const os = require('os');
 const { generateCreature, RARITY } = require('./creature');
-const { CreatureRenderer } = require('./renderer');
-const { World } = require('./world');
-const { CreaturePhysics } = require('./physics');
+const { Cell } = require('./cell');
+const { Terrarium } = require('./terrarium');
 
 const $ = id => document.getElementById(id);
 
 // === State ===
 let state = { energy: 80, happiness: 70, bond: 50, xp: 0, level: 1, mood: 'neutral' };
 let creature = null;
-let renderer = null;
-let world = null;
-let physics = null;
+let terrarium = null;
+let cell = null;
 
 // === Init ===
 function init() {
-  // Init world, physics, renderer
-  world = new World(16, 12);
-  physics = new CreaturePhysics(world);
-  renderer = new CreatureRenderer($('creature'));
-  renderer.setWorld(world, physics);
+  // Create the terrarium (handles all rendering + physics)
+  terrarium = new Terrarium($('creature'));
 
-  // Load state
-  const saved = localStorage.getItem('aria-state');
-  if (saved) Object.assign(state, JSON.parse(saved));
-
-  // Load or generate creature
+  // Create cell from seed
   let seed = localStorage.getItem('aria-seed');
   if (!seed) {
     seed = String(Date.now());
     localStorage.setItem('aria-seed', seed);
-    setTimeout(() => showUnbox(seed), 500);
-  } else {
-    loadCreature(seed);
   }
 
-  // Poke reactions — with physics
-  renderer.onPoke = (type) => {
+  cell = new Cell(parseInt(seed) || Date.now());
+  terrarium.setCell(cell);
+
+  // Terrarium poke callback
+  terrarium.onPoke = (type) => {
     const mult = creature ? creature.stats.xpMultiplier : 1;
     if (type === 'poke') {
-      const reactions = ["Hey! 😮", "Ow! 😣", "Hehe~ 😊", "Boop! 👆", "That tickles!", "*squish*", "Eep! 😲"];
+      const reactions = ["Hey! 😮", "Ow!", "Hehe~ 😊", "*squish*", "Eep! 😲"];
       say(reactions[Math.floor(Math.random() * reactions.length)]);
-      state.happiness = Math.min(creature ? creature.stats.maxHappiness : 100, state.happiness + 2);
+      state.happiness = Math.min(100, state.happiness + 2);
       state.xp += Math.floor(1 * mult);
-      // Physics push
-      if (physics) {
-        const pushX = (renderer.inputs.mouseX - 0.5) * -0.005;
-        const pushY = -0.003;
-        physics.poke(pushX, pushY);
-      }
     } else if (type === 'tickle') {
-      say("Ahahaha stop it!! 🤣🤣");
-      state.happiness = Math.min(creature ? creature.stats.maxHappiness : 100, state.happiness + 5);
-      state.bond = Math.min(creature ? creature.stats.maxBond : 100, state.bond + 2);
+      say("Ahahaha!! 🤣");
+      state.happiness = Math.min(100, state.happiness + 5);
+      state.bond = Math.min(100, state.bond + 2);
       state.xp += Math.floor(3 * mult);
-      if (physics) {
-        physics.poke((Math.random() - 0.5) * 0.01, -0.005);
-      }
-    } else if (type === 'release') {
-      if (renderer.jiggle > 10) {
-        say("Whooooaaaa! 🌀");
-        if (physics) physics.throw(renderer.dragOffset.x * 0.001, renderer.dragOffset.y * 0.001);
-      }
+    } else if (type === 'feed') {
+      say("Mmm! 🍎");
+      state.energy = Math.min(100, state.energy + 10);
+      state.xp += Math.floor(2 * mult);
     }
     checkLevelUp();
     updateUI();
     ipcRenderer.send('action-performed', type);
   };
 
-  // Right-click to drop food
-  $('creature').addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    const rect = $('creature').getBoundingClientRect();
-    const mx = (e.clientX - rect.left) / rect.width;
-    const my = (e.clientY - rect.top) / rect.height;
-    if (world) {
-      world.dropFood(mx, my);
-      say("Ooh, food! 🍎");
-      state.energy = Math.min(creature ? creature.stats.maxEnergy : 100, state.energy + 5);
+  // Load state
+  const saved = localStorage.getItem('aria-state');
+  if (saved) Object.assign(state, JSON.parse(saved));
+
+  // Update header with cell info
+  $('creature-name').textContent = 'Cell';
+  $('species-name').textContent = `Stage ${cell.stage} — Age ${cell.age.toFixed(0)}`;
+  $('rarity-badge').textContent = `S${cell.stage}`;
+  $('rarity-badge').style.background = '#1a403020';
+  $('rarity-badge').style.color = '#2dcc70';
+  $('mood').textContent = 'alive';
+  $('traits').innerHTML = '';
+
+  // Sync cell state to UI periodically
+  setInterval(() => {
+    if (cell) {
+      state.energy = Math.floor(cell.energy);
+      state.happiness = Math.floor(cell.happy * 100);
+      $('species-name').textContent = `Stage ${cell.stage} — Fed ${cell.totalFed.toFixed(0)}`;
+      $('mood').textContent = cell.expression;
     }
-  });
+    updateUI();
+  }, 1000);
 
   updateUI();
 }
