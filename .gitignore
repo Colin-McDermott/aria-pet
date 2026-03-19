@@ -1,0 +1,12 @@
+node_modules/
+dist/
+out/
+build/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+.env
+models/*.gguf
+package-lock.json

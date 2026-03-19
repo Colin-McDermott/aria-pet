@@ -1,0 +1,52 @@
+{
+  "name": "aria-pet",
+  "version": "0.1.0",
+  "description": "ARIA — Living AI Desktop Companion. Tamagotchi meets local LLM.",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:linux": "electron-builder --linux",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.aria.pet",
+    "productName": "ARIA",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "models/**/*"
+    ],
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Game"
+    },
+    "win": {
+      "target": ["nsis"]
+    },
+    "mac": {
+      "target": ["dmg"]
+    },
+    "extraResources": [
+      {
+        "from": "models/",
+        "to": "models/"
+      }
+    ]
+  },
+  "keywords": ["ai", "pet", "tamagotchi", "desktop-companion", "llm"],
+  "author": "Colin",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "dependencies": {
+    "node-llama-cpp": "^3.0.0"
+  }
+}

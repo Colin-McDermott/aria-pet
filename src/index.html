@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ARIA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0e10; --panel: #0e1214; --card: #151a1e;
+    --border: #1e2830; --glow: #1a4030;
+    --text: #c8d0d8; --dim: #4a5560; --bright: #e8f0e8;
+    --accent: #2dcc70; --danger: #e74c3c; --warning: #f39c12; --info: #3498db;
+  }
+
+  body {
+    font-family: 'Rajdhani', sans-serif;
+    background: transparent;
+    color: var(--text);
+    user-select: none;
+    overflow: hidden;
+  }
+
+  .container {
+    background: var(--bg);
+    border: 1px solid var(--glow);
+    border-radius: 14px;
+    padding: 12px;
+    margin: 6px;
+    box-shadow: 0 4px 24px rgba(45, 204, 112, 0.08);
+    -webkit-app-region: drag;
+  }
+
+  .no-drag { -webkit-app-region: no-drag; }
+
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .header h1 { font-size: 16px; color: var(--accent); letter-spacing: 3px; font-weight: 700; }
+  .header .level { font-family: 'Share Tech Mono'; font-size: 11px; color: var(--dim); }
+
+  .avatar-wrap {
+    display: flex; justify-content: center; margin: 6px 0;
+  }
+  .avatar {
+    width: 150px; height: 150px; border-radius: 50%;
+    border: 2px solid var(--glow); background: #040606;
+    overflow: hidden; display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.5s;
+  }
+  .avatar.happy { border-color: var(--accent); box-shadow: 0 0 15px rgba(45,204,112,0.2); }
+  .avatar.sad { border-color: var(--info); }
+  .avatar.alert { border-color: var(--danger); box-shadow: 0 0 15px rgba(231,76,60,0.2); }
+  .avatar.tired { border-color: var(--warning); }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .mood { text-align: center; font-size: 12px; color: var(--dim); margin: 4px 0; }
+
+  .stats { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+  .stat-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .stat-label { width: 80px; color: var(--dim); }
+  .stat-bar {
+    flex: 1; height: 8px; background: var(--card);
+    border-radius: 4px; overflow: hidden;
+  }
+  .stat-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .stat-fill.energy { background: var(--accent); }
+  .stat-fill.happiness { background: var(--warning); }
+  .stat-fill.bond { background: var(--info); }
+  .stat-val { width: 28px; text-align: right; font-family: 'Share Tech Mono'; font-size: 10px; color: var(--dim); }
+
+  .xp-bar { height: 4px; background: var(--card); border-radius: 2px; margin: 4px 0; overflow: hidden; }
+  .xp-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s; }
+
+  .speech {
+    background: var(--card); border: 1px solid var(--glow);
+    border-radius: 10px; padding: 8px 10px; margin: 8px 0;
+    font-size: 12px; line-height: 1.4; min-height: 38px;
+    transition: border-color 0.3s;
+  }
+
+  .chat-input {
+    width: 100%; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--card); color: var(--text); padding: 7px 10px;
+    font-family: 'Rajdhani'; font-size: 12px; outline: none;
+    transition: border-color 0.3s;
+  }
+  .chat-input:focus { border-color: var(--accent); }
+  .chat-input::placeholder { color: var(--dim); }
+
+  .sys-bar {
+    text-align: center; font-family: 'Share Tech Mono'; font-size: 9px;
+    color: var(--dim); margin-top: 6px; padding-top: 6px;
+    border-top: 1px solid var(--border);
+  }
+
+  .actions {
+    display: flex; gap: 4px; margin-top: 6px; justify-content: center;
+  }
+  .action-btn {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 4px 10px; color: var(--text);
+    font-family: 'Rajdhani'; font-size: 10px; cursor: pointer;
+    transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>ARIA</h1>
+    <span class="level" id="level">Lv.1</span>
+  </div>
+
+  <div class="avatar-wrap">
+    <div class="avatar" id="avatar">
+      <img src="../assets/aria-idle.gif" alt="ARIA">
+    </div>
+  </div>
+
+  <div class="mood" id="mood">feeling neutral</div>
+
+  <div class="stats">
+    <div class="stat-row">
+      <span class="stat-label">⚡ Energy</span>
+      <div class="stat-bar"><div class="stat-fill energy" id="bar-energy" style="width:80%"></div></div>
+      <span class="stat-val" id="val-energy">80</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">☺ Happiness</span>
+      <div class="stat-bar"><div class="stat-fill happiness" id="bar-happiness" style="width:70%"></div></div>
+      <span class="stat-val" id="val-happiness">70</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">♥ Bond</span>
+      <div class="stat-bar"><div class="stat-fill bond" id="bar-bond" style="width:50%"></div></div>
+      <span class="stat-val" id="val-bond">50</span>
+    </div>
+  </div>
+
+  <div class="xp-bar"><div class="xp-fill" id="xp-bar" style="width:0%"></div></div>
+
+  <div class="speech" id="speech">Online and vibing, Captain. ✨</div>
+
+  <div class="no-drag">
+    <input class="chat-input" id="chat" placeholder="Talk to ARIA..." autocomplete="off">
+  </div>
+
+  <div class="actions no-drag">
+    <button class="action-btn" onclick="doAction('feed')">🍎 Feed</button>
+    <button class="action-btn" onclick="doAction('play')">🎮 Play</button>
+    <button class="action-btn" onclick="doAction('pet')">💚 Pet</button>
+  </div>
+
+  <div class="sys-bar" id="sys">CPU 0% | RAM 0% | GPU 0°C</div>
+</div>
+
+<script>
+const { ipcRenderer } = require('electron');
+const os = require('os');
+
+// State
+let state = {
+  energy: 80, happiness: 70, bond: 50,
+  xp: 0, level: 1, mood: 'neutral'
+};
+
+// Elements
+const $ = id => document.getElementById(id);
+
+function updateUI() {
+  $('bar-energy').style.width = state.energy + '%';
+  $('val-energy').textContent = state.energy;
+  $('bar-happiness').style.width = state.happiness + '%';
+  $('val-happiness').textContent = state.happiness;
+  $('bar-bond').style.width = state.bond + '%';
+  $('val-bond').textContent = state.bond;
+  $('xp-bar').style.width = (state.xp % 100) + '%';
+  $('level').textContent = 'Lv.' + state.level;
+
+  const avatar = $('avatar');
+  avatar.className = 'avatar ' + state.mood;
+
+  const moods = {
+    happy: 'feeling great! 💚',
+    neutral: 'feeling neutral',
+    tired: 'feeling tired... 😴',
+    sad: 'feeling lonely... 😢',
+    alert: 'on high alert! ⚠',
+  };
+  $('mood').textContent = moods[state.mood] || moods.neutral;
+}
+
+// Stat decay
+setInterval(() => {
+  state.energy = Math.max(0, state.energy - Math.floor(Math.random() * 3));
+  state.happiness = Math.max(0, state.happiness - Math.floor(Math.random() * 2));
+
+  if (state.energy < 20) { state.mood = 'tired'; say("Running low on energy... 😴"); }
+  else if (state.happiness < 30) { state.mood = 'sad'; say("Nobody talks to me... 😢"); }
+  else if (state.energy > 60 && state.happiness > 60) { state.mood = 'happy'; }
+
+  updateUI();
+}, 30000);
+
+// Random chatter
+setInterval(() => {
+  if (state.mood === 'tired' || state.mood === 'sad') return;
+  const lines = {
+    happy: ["Everything's smooth! 💚", "We're a great team! ✨", "Love this vibe~", "Your GPU is purring 🐱"],
+    neutral: ["Standing by...", "All systems go.", "Watching the data flow.", "Need anything?"],
+    alert: ["CPU's hot! 🔥", "Something's using resources...", "Temps climbing!"],
+  };
+  const pool = lines[state.mood] || lines.neutral;
+  say(pool[Math.floor(Math.random() * pool.length)]);
+}, 45000);
+
+// System stats
+setInterval(() => {
+  const cpus = os.cpus();
+  const cpuAvg = cpus.reduce((sum, c) => {
+    const total = Object.values(c.times).reduce((a, b) => a + b, 0);
+    return sum + (1 - c.times.idle / total) * 100;
+  }, 0) / cpus.length;
+
+  const mem = os.totalmem();
+  const free = os.freemem();
+  const ramPct = ((mem - free) / mem * 100).toFixed(0);
+
+  $('sys').textContent = `CPU ${cpuAvg.toFixed(0)}% | RAM ${ramPct}% | Lv.${state.level}`;
+
+  if (cpuAvg > 30) state.energy = Math.min(100, state.energy + 1);
+  if (cpuAvg > 90) state.mood = 'alert';
+  else if (state.mood === 'alert' && cpuAvg < 70) state.mood = 'neutral';
+}, 3000);
+
+function say(text) { $('speech').textContent = text; }
+
+function doAction(type) {
+  if (type === 'feed') {
+    state.energy = Math.min(100, state.energy + 20);
+    state.xp += 3;
+    say("Mmm, electrons! ⚡ Thanks!");
+  } else if (type === 'play') {
+    state.happiness = Math.min(100, state.happiness + 20);
+    state.xp += 3;
+    say("Wheee! 🎉");
+  } else if (type === 'pet') {
+    state.bond = Math.min(100, state.bond + 10);
+    state.happiness = Math.min(100, state.happiness + 10);
+    state.xp += 5;
+    say("*purrs digitally* 💚💚💚");
+  }
+  state.mood = 'happy';
+  checkLevelUp();
+  updateUI();
+}
+
+function checkLevelUp() {
+  if (state.xp >= state.level * 100) {
+    state.level++;
+    say(`✨ LEVEL UP! Lv.${state.level}! ✨`);
+  }
+}
+
+// Chat
+$('chat').addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  const text = e.target.value.trim();
+  if (!text) return;
+  e.target.value = '';
+
+  state.bond = Math.min(100, state.bond + 3);
+  state.happiness = Math.min(100, state.happiness + 5);
+  state.xp += 5;
+  checkLevelUp();
+
+  say('Thinking... 🤔');
+  updateUI();
+
+  const prompt = `You are ARIA, a cute sentient AI desktop pet companion.
+Mood: ${state.mood}. Energy: ${state.energy}/100. Happiness: ${state.happiness}/100. Bond: ${state.bond}/100. Level: ${state.level}.
+Be concise (1-2 sentences), cute, expressive. Use occasional emojis.
+
+User: ${text}
+ARIA:`;
+
+  const response = await ipcRenderer.invoke('chat', prompt);
+  say(response.trim());
+});
+
+// Handle tray actions
+ipcRenderer.on('action', (event, type) => doAction(type));
+
+// Save/load state
+function saveState() { localStorage.setItem('aria-state', JSON.stringify(state)); }
+function loadState() {
+  const saved = localStorage.getItem('aria-state');
+  if (saved) { Object.assign(state, JSON.parse(saved)); }
+}
+loadState();
+updateUI();
+setInterval(saveState, 10000);
+
+// Initial greeting
+setTimeout(() => {
+  if (state.bond > 70) say("Missed you! Welcome back! 💚");
+  else if (state.level > 3) say("Good to see you, Captain. ✨");
+  else say("Online and vibing! ✨");
+}, 1000);
+</script>
+
+</body>
+</html>
