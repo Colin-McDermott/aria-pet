@@ -127,6 +127,11 @@ class CreatureRenderer {
     this.onPoke = null;
   }
 
+  setWorld(world, physics) {
+    this.world = world;
+    this.physics = physics;
+  }
+
   setCreature(creature) {
     this.creature = creature;
     this.particles = [];
@@ -154,10 +159,25 @@ class CreatureRenderer {
     this.time += 0.03;
     this.blinkTimer += 0.03;
 
-    // Random blink
-    if (!this.blinking && Math.random() < 0.005) {
+    // Random blink (more when tired)
+    const blinkChance = this.physics?.tiredness > 0.6 ? 0.02 : 0.005;
+    if (!this.blinking && Math.random() < blinkChance) {
       this.blinking = true;
-      setTimeout(() => this.blinking = false, 150);
+      const blinkDur = this.physics?.behavior === 'sleep' ? 2000 : 150;
+      setTimeout(() => this.blinking = false, blinkDur);
+    }
+
+    // Tick world and physics
+    if (this.world) this.world.tick(1);
+    if (this.physics) {
+      const mouseState = {
+        x: this.inputs.mouseX,
+        y: this.inputs.mouseY,
+        near: this.isHovering,
+        dragging: this.isDragging,
+        poking: this.pokeForce > 5,
+      };
+      this._physicsState = this.physics.tick(1, mouseState);
     }
 
     this.draw();
@@ -174,8 +194,12 @@ class CreatureRenderer {
 
     ctx.clearRect(0, 0, w, h);
 
-    // Draw environment behind creature
-    this.drawEnvironment(ctx, w, h);
+    // Draw world (tiles, organisms, food) if available, else old environment
+    if (this.world) {
+      this._drawWorld(ctx, w, h);
+    } else {
+      this.drawEnvironment(ctx, w, h);
+    }
 
     // Colors from creature data
     const primary = this.hsl(v.primaryHue, v.saturation, v.brightness);
@@ -242,9 +266,22 @@ class CreatureRenderer {
     const leanX = this.isHovering && !this.isDragging ? (inp.mouseX - 0.5) * 8 : 0;
     const leanY = this.isHovering && !this.isDragging ? (inp.mouseY - 0.5) * 5 : 0;
 
+    // Position: use physics if available, otherwise center
+    let posX = cx, posY = cy;
+    if (this._physicsState) {
+      posX = this._physicsState.x * w;
+      posY = this._physicsState.y * h;
+      // Reduce manual poke/drag when physics is active (physics handles it)
+    }
+
     ctx.save();
-    ctx.translate(cx + pokeX + jigX + dragX + leanX, cy + bob + pokeY + jigY + dragY + leanY);
+    ctx.translate(posX + pokeX * 0.3 + jigX + leanX, posY + bob + pokeY * 0.3 + jigY + leanY);
     ctx.scale(scale * squishX, scale * squishY);
+
+    // Flip based on facing direction
+    if (this._physicsState && this._physicsState.facing < 0) {
+      ctx.scale(-1, 1);
+    }
 
     // === Draw Aura ===
     this.drawAura(ctx, v, glow);
@@ -637,7 +674,128 @@ class CreatureRenderer {
     return `hsl(${Math.floor(h * 360)}, ${Math.floor(s * 100)}%, ${Math.floor(l * 100)}%)`;
   }
 
-  // === Environment — the creature's home biome ===
+  // === World Rendering (tile-based terrarium) ===
+  _drawWorld(ctx, w, h) {
+    const world = this.world;
+    const { TILE_COLORS } = require('./world');
+    const tileW = w / world.w;
+    const tileH = h / world.h;
+
+    // Sky gradient (time of day)
+    const phase = world.getDayPhase();
+    const night = world.isNight();
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    if (night) {
+      grad.addColorStop(0, '#030508');
+      grad.addColorStop(1, '#060a10');
+    } else {
+      const warmth = Math.sin(phase * Math.PI);
+      grad.addColorStop(0, `rgb(${5 + warmth * 10}, ${8 + warmth * 5}, ${15 + warmth * 5})`);
+      grad.addColorStop(1, `rgb(${8 + warmth * 5}, ${12 + warmth * 8}, ${15 + warmth * 3})`);
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Stars at night
+    if (night) {
+      for (let i = 0; i < 10; i++) {
+        const sx = ((i * 23 + 7) % w);
+        const sy = ((i * 17 + 3) % (h * 0.5));
+        ctx.fillStyle = `rgba(200, 220, 255, ${0.15 + Math.sin(this.time * 0.5 + i) * 0.1})`;
+        ctx.fillRect(sx, sy, 1, 1);
+      }
+    }
+
+    // Draw tiles
+    for (let y = 0; y < world.h; y++) {
+      for (let x = 0; x < world.w; x++) {
+        const tile = world.getTile(x, y);
+        const color = TILE_COLORS[tile];
+        if (color) {
+          ctx.fillStyle = color;
+          ctx.fillRect(x * tileW, y * tileH, tileW + 0.5, tileH + 0.5);
+
+          // Tile detail
+          if (tile === 2) { // Water shimmer
+            ctx.fillStyle = `rgba(60, 120, 200, ${0.05 + Math.sin(this.time * 2 + x) * 0.03})`;
+            ctx.fillRect(x * tileW, y * tileH, tileW, tileH);
+          }
+          if (tile === 4) { // Lava glow
+            ctx.fillStyle = `rgba(255, 80, 20, ${0.05 + Math.sin(this.time * 3 + x + y) * 0.05})`;
+            ctx.fillRect(x * tileW, y * tileH, tileW, tileH);
+          }
+        }
+      }
+    }
+
+    // Draw organisms (plants)
+    for (const org of world.organisms) {
+      if (org.type === 'plant') {
+        const px = org.x * w;
+        const py = org.y * h;
+        const sz = org.size * tileH;
+        // Stem
+        ctx.strokeStyle = 'rgba(40, 80, 40, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(px, py + sz);
+        ctx.lineTo(px + Math.sin(this.time + org.x * 10) * 2, py);
+        ctx.stroke();
+        // Leaf/top
+        ctx.beginPath();
+        ctx.arc(px + Math.sin(this.time + org.x * 10) * 2, py, sz * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = org.color;
+        ctx.fill();
+      }
+    }
+
+    // Draw food particles
+    for (const f of world.foodParticles) {
+      const fx = f.x * w;
+      const fy = f.y * h + (f.grounded ? Math.sin(f.bobPhase) * 1 : 0);
+      ctx.beginPath();
+      ctx.arc(fx, fy, f.size, 0, Math.PI * 2);
+      ctx.fillStyle = f.color;
+      ctx.fill();
+      // Glow
+      ctx.beginPath();
+      ctx.arc(fx, fy, f.size + 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 200, 50, 0.1)';
+      ctx.fill();
+    }
+
+    // Draw weather particles
+    for (const p of world.particles) {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x * w, p.y * h, p.size, p.size * 3);
+    }
+
+    // Creature trail (faint)
+    if (this.physics) {
+      ctx.globalAlpha = 0.03;
+      for (let i = 0; i < this.physics.trail.length - 1; i++) {
+        const t = this.physics.trail[i];
+        ctx.beginPath();
+        ctx.arc(t.x * w, t.y * h, 3, 0, Math.PI * 2);
+        ctx.fillStyle = this.hsl(this.creature.visuals.primaryHue, 0.5, 0.4);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Sleep ZZZ
+    if (this._physicsState?.behavior === 'sleep') {
+      for (let i = 0; i < 3; i++) {
+        const zx = (this._physicsState.x + 0.05 + i * 0.03) * w;
+        const zy = (this._physicsState.y - 0.05 - i * 0.04) * h + Math.sin(this.time * 2 + i) * 3;
+        ctx.font = `${8 + i * 2}px Rajdhani`;
+        ctx.fillStyle = `rgba(150, 180, 220, ${0.3 - i * 0.08})`;
+        ctx.fillText('z', zx, zy);
+      }
+    }
+  }
+
+  // === Environment — the creature's home biome (fallback without world) ===
   drawEnvironment(ctx, w, h) {
     const v = this.creature.visuals;
     const inp = this.inputs;
