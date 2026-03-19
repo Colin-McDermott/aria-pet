@@ -5,123 +5,167 @@
 <title>ARIA</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   :root {
     --bg: #0a0e10; --panel: #0e1214; --card: #151a1e;
     --border: #1e2830; --glow: #1a4030;
     --text: #c8d0d8; --dim: #4a5560; --bright: #e8f0e8;
     --accent: #2dcc70; --danger: #e74c3c; --warning: #f39c12; --info: #3498db;
   }
-
-  body {
-    font-family: 'Rajdhani', sans-serif;
-    background: transparent;
-    color: var(--text);
-    user-select: none;
-    overflow: hidden;
-  }
+  body { font-family: 'Rajdhani', sans-serif; background: transparent; color: var(--text); user-select: none; overflow: hidden; }
 
   .container {
-    background: var(--bg);
-    border: 1px solid var(--glow);
-    border-radius: 14px;
-    padding: 12px;
-    margin: 6px;
-    box-shadow: 0 4px 24px rgba(45, 204, 112, 0.08);
-    -webkit-app-region: drag;
+    background: var(--bg); border: 1px solid var(--glow); border-radius: 14px;
+    padding: 12px; margin: 6px; box-shadow: 0 4px 24px rgba(45, 204, 112, 0.08);
+    -webkit-app-region: drag; position: relative;
   }
-
   .no-drag { -webkit-app-region: no-drag; }
 
-  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-  .header h1 { font-size: 16px; color: var(--accent); letter-spacing: 3px; font-weight: 700; }
-  .header .level { font-family: 'Share Tech Mono'; font-size: 11px; color: var(--dim); }
-
-  .avatar-wrap {
-    display: flex; justify-content: center; margin: 6px 0;
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .header h1 { font-size: 15px; color: var(--accent); letter-spacing: 3px; font-weight: 700; }
+  .creature-name { font-size: 10px; color: var(--dim); font-family: 'Share Tech Mono'; }
+  .rarity-badge {
+    font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
   }
-  .avatar {
-    width: 150px; height: 150px; border-radius: 50%;
-    border: 2px solid var(--glow); background: #040606;
-    overflow: hidden; display: flex; align-items: center; justify-content: center;
-    transition: border-color 0.5s;
-  }
-  .avatar.happy { border-color: var(--accent); box-shadow: 0 0 15px rgba(45,204,112,0.2); }
-  .avatar.sad { border-color: var(--info); }
-  .avatar.alert { border-color: var(--danger); box-shadow: 0 0 15px rgba(231,76,60,0.2); }
-  .avatar.tired { border-color: var(--warning); }
-  .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-  .mood { text-align: center; font-size: 12px; color: var(--dim); margin: 4px 0; }
-
-  .stats { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
-  .stat-row { display: flex; align-items: center; gap: 6px; font-size: 11px; }
-  .stat-label { width: 80px; color: var(--dim); }
-  .stat-bar {
-    flex: 1; height: 8px; background: var(--card);
-    border-radius: 4px; overflow: hidden;
+  /* Canvas creature */
+  .creature-wrap { display: flex; justify-content: center; margin: 4px 0; }
+  .creature-canvas {
+    border-radius: 50%; border: 2px solid var(--glow); background: #040606;
+    transition: border-color 0.5s, box-shadow 0.5s; cursor: pointer;
   }
+  .creature-canvas.happy { border-color: var(--accent); box-shadow: 0 0 15px rgba(45,204,112,0.2); }
+  .creature-canvas.sad { border-color: var(--info); }
+  .creature-canvas.alert { border-color: var(--danger); box-shadow: 0 0 15px rgba(231,76,60,0.2); }
+  .creature-canvas.tired { border-color: var(--warning); }
+
+  /* Species + traits */
+  .traits { display: flex; gap: 3px; flex-wrap: wrap; justify-content: center; margin: 4px 0; }
+  .trait-tag {
+    font-size: 8px; padding: 1px 5px; border-radius: 2px;
+    text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid var(--border);
+  }
+
+  /* Mood */
+  .mood { text-align: center; font-size: 11px; color: var(--dim); margin: 2px 0; }
+
+  /* Stats */
+  .stats { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; }
+  .stat-row { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+  .stat-label { width: 78px; color: var(--dim); }
+  .stat-bar { flex: 1; height: 7px; background: var(--card); border-radius: 4px; overflow: hidden; }
   .stat-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
   .stat-fill.energy { background: var(--accent); }
   .stat-fill.happiness { background: var(--warning); }
   .stat-fill.bond { background: var(--info); }
-  .stat-val { width: 28px; text-align: right; font-family: 'Share Tech Mono'; font-size: 10px; color: var(--dim); }
+  .stat-val { width: 24px; text-align: right; font-family: 'Share Tech Mono'; font-size: 9px; color: var(--dim); }
 
-  .xp-bar { height: 4px; background: var(--card); border-radius: 2px; margin: 4px 0; overflow: hidden; }
+  .xp-row { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--dim); }
+  .xp-bar { flex: 1; height: 4px; background: var(--card); border-radius: 2px; overflow: hidden; }
   .xp-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s; }
 
+  /* Challenge */
+  .challenge {
+    background: var(--card); border: 1px solid var(--warning); border-radius: 6px;
+    padding: 5px 8px; margin: 4px 0; font-size: 9px; display: none;
+  }
+  .challenge.active { display: block; }
+
+  /* Speech */
   .speech {
-    background: var(--card); border: 1px solid var(--glow);
-    border-radius: 10px; padding: 8px 10px; margin: 8px 0;
-    font-size: 12px; line-height: 1.4; min-height: 38px;
-    transition: border-color 0.3s;
+    background: var(--card); border: 1px solid var(--glow); border-radius: 10px;
+    padding: 7px 9px; margin: 6px 0; font-size: 11px; line-height: 1.4; min-height: 34px;
   }
 
+  /* Chat */
   .chat-input {
     width: 100%; border: 1px solid var(--border); border-radius: 8px;
-    background: var(--card); color: var(--text); padding: 7px 10px;
-    font-family: 'Rajdhani'; font-size: 12px; outline: none;
-    transition: border-color 0.3s;
+    background: var(--card); color: var(--text); padding: 6px 10px;
+    font-family: 'Rajdhani'; font-size: 11px; outline: none;
   }
   .chat-input:focus { border-color: var(--accent); }
   .chat-input::placeholder { color: var(--dim); }
 
-  .sys-bar {
-    text-align: center; font-family: 'Share Tech Mono'; font-size: 9px;
-    color: var(--dim); margin-top: 6px; padding-top: 6px;
-    border-top: 1px solid var(--border);
-  }
-
-  .actions {
-    display: flex; gap: 4px; margin-top: 6px; justify-content: center;
-  }
+  /* Actions */
+  .actions { display: flex; gap: 3px; margin-top: 5px; justify-content: center; }
   .action-btn {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 6px; padding: 4px 10px; color: var(--text);
-    font-family: 'Rajdhani'; font-size: 10px; cursor: pointer;
-    transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 5px;
+    padding: 3px 8px; color: var(--text); font-family: 'Rajdhani'; font-size: 9px;
+    cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px;
   }
   .action-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* System bar */
+  .sys-bar {
+    text-align: center; font-family: 'Share Tech Mono'; font-size: 8px;
+    color: var(--dim); margin-top: 5px; padding-top: 4px; border-top: 1px solid var(--border);
+  }
+
+  /* Settings gear */
+  .settings-btn {
+    position: absolute; top: 10px; right: 10px; cursor: pointer;
+    font-size: 14px; color: var(--dim); -webkit-app-region: no-drag;
+  }
+  .settings-btn:hover { color: var(--accent); }
+
+  /* Settings panel */
+  .settings-panel {
+    display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg); border-radius: 14px; padding: 12px; z-index: 10;
+    overflow-y: auto; -webkit-app-region: no-drag;
+  }
+  .settings-panel.open { display: block; }
+  .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 11px; }
+  .setting-label { color: var(--dim); }
+  .setting-value { color: var(--text); font-family: 'Share Tech Mono'; font-size: 10px; }
+  select, input[type="text"] {
+    background: var(--card); color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: 3px 6px; font-family: 'Share Tech Mono'; font-size: 10px;
+  }
+
+  /* Unbox overlay */
+  .unbox-overlay {
+    display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: var(--bg); border-radius: 14px; z-index: 20;
+    flex-direction: column; align-items: center; justify-content: center;
+  }
+  .unbox-overlay.active { display: flex; }
+  .unbox-text { font-size: 18px; font-weight: 700; letter-spacing: 3px; margin-bottom: 10px; }
+  .unbox-canvas { border-radius: 50%; border: 3px solid var(--border); background: #040606; }
 </style>
 </head>
 <body>
 
-<div class="container">
-  <div class="header">
-    <h1>ARIA</h1>
-    <span class="level" id="level">Lv.1</span>
-  </div>
+<div class="container" id="main">
+  <!-- Settings gear -->
+  <span class="settings-btn no-drag" onclick="toggleSettings()">⚙</span>
 
-  <div class="avatar-wrap">
-    <div class="avatar" id="avatar">
-      <img src="../assets/aria-idle.gif" alt="ARIA">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1 id="creature-name">ARIA</h1>
+      <span class="creature-name" id="species-name">generating...</span>
+    </div>
+    <div>
+      <span class="rarity-badge" id="rarity-badge">?</span>
+      <span class="creature-name" id="level">Lv.1</span>
     </div>
   </div>
 
-  <div class="mood" id="mood">feeling neutral</div>
+  <!-- Creature Canvas -->
+  <div class="creature-wrap">
+    <canvas class="creature-canvas no-drag" id="creature" width="160" height="160" onclick="doAction('pet')"></canvas>
+  </div>
 
+  <!-- Traits -->
+  <div class="traits" id="traits"></div>
+
+  <!-- Mood -->
+  <div class="mood" id="mood">generating...</div>
+
+  <!-- Stats -->
   <div class="stats">
     <div class="stat-row">
       <span class="stat-label">⚡ Energy</span>
@@ -138,124 +182,249 @@
       <div class="stat-bar"><div class="stat-fill bond" id="bar-bond" style="width:50%"></div></div>
       <span class="stat-val" id="val-bond">50</span>
     </div>
+    <div class="xp-row">
+      <span>✦ XP</span>
+      <div class="xp-bar"><div class="xp-fill" id="xp-bar" style="width:0%"></div></div>
+      <span id="xp-val">0</span>
+    </div>
   </div>
 
-  <div class="xp-bar"><div class="xp-fill" id="xp-bar" style="width:0%"></div></div>
+  <!-- Active challenge -->
+  <div class="challenge" id="challenge"></div>
 
-  <div class="speech" id="speech">Online and vibing, Captain. ✨</div>
+  <!-- Speech -->
+  <div class="speech" id="speech">Generating your companion...</div>
 
+  <!-- Chat -->
   <div class="no-drag">
-    <input class="chat-input" id="chat" placeholder="Talk to ARIA..." autocomplete="off">
+    <input class="chat-input" id="chat" placeholder="Talk to your companion..." autocomplete="off">
   </div>
 
+  <!-- Actions -->
   <div class="actions no-drag">
     <button class="action-btn" onclick="doAction('feed')">🍎 Feed</button>
     <button class="action-btn" onclick="doAction('play')">🎮 Play</button>
     <button class="action-btn" onclick="doAction('pet')">💚 Pet</button>
   </div>
 
-  <div class="sys-bar" id="sys">CPU 0% | RAM 0% | GPU 0°C</div>
+  <!-- System -->
+  <div class="sys-bar" id="sys">CPU 0% | RAM 0%</div>
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settings">
+    <div class="header">
+      <h1>Settings</h1>
+      <span class="settings-btn" onclick="toggleSettings()">✕</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Creature Seed</span>
+      <span class="setting-value" id="seed-display">—</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Rarity</span>
+      <span class="setting-value" id="rarity-display">—</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Species</span>
+      <span class="setting-value" id="species-display">—</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Total Chats</span>
+      <span class="setting-value" id="chats-display">0</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Days Together</span>
+      <span class="setting-value" id="days-display">0</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Chat Streak</span>
+      <span class="setting-value" id="streak-display">0</span>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Reroll Creature</span>
+      <button class="action-btn" onclick="reroll()">🎲 New Seed</button>
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">Custom Seed</span>
+      <input type="text" id="custom-seed" placeholder="enter seed..." style="width:100px">
+      <button class="action-btn" onclick="applySeed()">Apply</button>
+    </div>
+    <div style="margin-top:10px;font-size:9px;color:var(--dim);text-align:center">
+      ARIA v0.2.0 — github.com/Colin-McDermott/aria-pet
+    </div>
+  </div>
+
+  <!-- Unbox Overlay -->
+  <div class="unbox-overlay" id="unbox">
+    <div class="unbox-text" id="unbox-text">GENERATING...</div>
+    <canvas class="unbox-canvas" id="unbox-canvas" width="180" height="180"></canvas>
+    <div style="margin-top:10px;font-size:11px;color:var(--dim)" id="unbox-info"></div>
+    <button class="action-btn no-drag" style="margin-top:10px;padding:6px 20px;font-size:12px" onclick="closeUnbox()">Continue</button>
+  </div>
 </div>
 
 <script>
 const { ipcRenderer } = require('electron');
 const os = require('os');
+const { generateCreature, RARITY } = require('./creature');
+const { CreatureRenderer } = require('./renderer');
 
-// State
-let state = {
-  energy: 80, happiness: 70, bond: 50,
-  xp: 0, level: 1, mood: 'neutral'
-};
-
-// Elements
 const $ = id => document.getElementById(id);
 
-function updateUI() {
-  $('bar-energy').style.width = state.energy + '%';
-  $('val-energy').textContent = state.energy;
-  $('bar-happiness').style.width = state.happiness + '%';
-  $('val-happiness').textContent = state.happiness;
-  $('bar-bond').style.width = state.bond + '%';
-  $('val-bond').textContent = state.bond;
-  $('xp-bar').style.width = (state.xp % 100) + '%';
-  $('level').textContent = 'Lv.' + state.level;
+// === State ===
+let state = { energy: 80, happiness: 70, bond: 50, xp: 0, level: 1, mood: 'neutral' };
+let creature = null;
+let renderer = null;
 
-  const avatar = $('avatar');
-  avatar.className = 'avatar ' + state.mood;
+// === Init ===
+function init() {
+  // Load or generate creature
+  let seed = localStorage.getItem('aria-seed');
+  if (!seed) {
+    seed = String(Date.now());
+    localStorage.setItem('aria-seed', seed);
+    // Show unbox for first time
+    setTimeout(() => showUnbox(seed), 500);
+  } else {
+    loadCreature(seed);
+  }
 
-  const moods = {
-    happy: 'feeling great! 💚',
-    neutral: 'feeling neutral',
-    tired: 'feeling tired... 😴',
-    sad: 'feeling lonely... 😢',
-    alert: 'on high alert! ⚠',
-  };
-  $('mood').textContent = moods[state.mood] || moods.neutral;
-}
+  // Load state
+  const saved = localStorage.getItem('aria-state');
+  if (saved) Object.assign(state, JSON.parse(saved));
 
-// Stat decay
-setInterval(() => {
-  state.energy = Math.max(0, state.energy - Math.floor(Math.random() * 3));
-  state.happiness = Math.max(0, state.happiness - Math.floor(Math.random() * 2));
-
-  if (state.energy < 20) { state.mood = 'tired'; say("Running low on energy... 😴"); }
-  else if (state.happiness < 30) { state.mood = 'sad'; say("Nobody talks to me... 😢"); }
-  else if (state.energy > 60 && state.happiness > 60) { state.mood = 'happy'; }
+  // Init renderer
+  renderer = new CreatureRenderer($('creature'));
 
   updateUI();
-}, 30000);
+}
 
-// Random chatter
-setInterval(() => {
-  if (state.mood === 'tired' || state.mood === 'sad') return;
-  const lines = {
-    happy: ["Everything's smooth! 💚", "We're a great team! ✨", "Love this vibe~", "Your GPU is purring 🐱"],
-    neutral: ["Standing by...", "All systems go.", "Watching the data flow.", "Need anything?"],
-    alert: ["CPU's hot! 🔥", "Something's using resources...", "Temps climbing!"],
-  };
-  const pool = lines[state.mood] || lines.neutral;
-  say(pool[Math.floor(Math.random() * pool.length)]);
-}, 45000);
+function loadCreature(seed) {
+  creature = generateCreature(seed);
 
-// System stats
-setInterval(() => {
-  const cpus = os.cpus();
-  const cpuAvg = cpus.reduce((sum, c) => {
-    const total = Object.values(c.times).reduce((a, b) => a + b, 0);
-    return sum + (1 - c.times.idle / total) * 100;
-  }, 0) / cpus.length;
+  // Apply creature stats
+  state.energy = Math.min(state.energy, creature.stats.maxEnergy);
+  state.happiness = Math.min(state.happiness, creature.stats.maxHappiness);
 
-  const mem = os.totalmem();
-  const free = os.freemem();
-  const ramPct = ((mem - free) / mem * 100).toFixed(0);
+  // Update UI
+  $('creature-name').textContent = creature.name;
+  $('species-name').textContent = creature.species.name;
+  $('rarity-badge').textContent = creature.rarityInfo.name;
+  $('rarity-badge').style.background = creature.rarityInfo.color + '20';
+  $('rarity-badge').style.color = creature.rarityInfo.color;
+  $('rarity-badge').style.borderColor = creature.rarityInfo.color;
 
-  $('sys').textContent = `CPU ${cpuAvg.toFixed(0)}% | RAM ${ramPct}% | Lv.${state.level}`;
+  // Container border color matches rarity
+  document.querySelector('.container').style.borderColor = creature.rarityInfo.color + '40';
 
-  if (cpuAvg > 30) state.energy = Math.min(100, state.energy + 1);
-  if (cpuAvg > 90) state.mood = 'alert';
-  else if (state.mood === 'alert' && cpuAvg < 70) state.mood = 'neutral';
-}, 3000);
+  // Traits
+  const traitsEl = $('traits');
+  traitsEl.innerHTML = '';
+  for (const [cat, trait] of Object.entries(creature.traits)) {
+    const tag = document.createElement('span');
+    tag.className = 'trait-tag';
+    tag.textContent = trait.name;
+    tag.title = trait.effect;
+    const rarityColor = RARITY[trait.rarity]?.color || '#666';
+    tag.style.color = rarityColor;
+    tag.style.borderColor = rarityColor + '40';
+    traitsEl.appendChild(tag);
+  }
+
+  // Settings
+  $('seed-display').textContent = seed.substring(0, 12) + '...';
+  $('rarity-display').textContent = creature.rarityInfo.name;
+  $('rarity-display').style.color = creature.rarityInfo.color;
+  $('species-display').textContent = creature.species.name;
+
+  if (renderer) renderer.setCreature(creature);
+}
+
+// === Unbox Animation ===
+function showUnbox(seed) {
+  $('unbox').classList.add('active');
+  const c = generateCreature(seed);
+
+  const unboxRenderer = new CreatureRenderer($('unbox-canvas'));
+
+  // Dramatic reveal
+  const rarityOrder = ['COMMON','UNCOMMON','RARE','EPIC','LEGENDARY','MYTHIC'];
+  const targetIdx = rarityOrder.indexOf(c.rarity);
+  let currentIdx = 0;
+
+  $('unbox-text').textContent = 'GENERATING...';
+  $('unbox-text').style.color = '#666';
+
+  const interval = setInterval(() => {
+    if (currentIdx <= targetIdx) {
+      const r = rarityOrder[currentIdx];
+      $('unbox-text').textContent = RARITY[r].name.toUpperCase();
+      $('unbox-text').style.color = RARITY[r].color;
+      $('unbox-canvas').style.borderColor = RARITY[r].color;
+      currentIdx++;
+    } else {
+      clearInterval(interval);
+      // Show creature
+      unboxRenderer.setCreature(c);
+      $('unbox-info').innerHTML = `
+        <strong style="color:${c.rarityInfo.color}">${c.name}</strong> — ${c.species.name}<br>
+        <span style="font-size:9px">${c.traits.personality.name} · ${c.traits.ability.name} · ${c.traits.aura.name}</span>
+      `;
+    }
+  }, 400);
+
+  // Store
+  localStorage.setItem('aria-seed', seed);
+  creature = c;
+}
+
+function closeUnbox() {
+  $('unbox').classList.remove('active');
+  loadCreature(localStorage.getItem('aria-seed'));
+  updateUI();
+  say(`Hi! I'm ${creature.name}. Nice to meet you! ✨`);
+}
+
+// === UI ===
+function updateUI() {
+  $('bar-energy').style.width = state.energy + '%'; $('val-energy').textContent = state.energy;
+  $('bar-happiness').style.width = state.happiness + '%'; $('val-happiness').textContent = state.happiness;
+  $('bar-bond').style.width = state.bond + '%'; $('val-bond').textContent = state.bond;
+  $('xp-bar').style.width = (state.xp % 100) + '%'; $('xp-val').textContent = state.xp;
+  $('level').textContent = 'Lv.' + state.level;
+
+  const canvas = $('creature');
+  canvas.className = 'creature-canvas no-drag ' + state.mood;
+
+  const moods = { happy:'feeling great! 💚', neutral:'feeling neutral', tired:'feeling tired... 😴', sad:'feeling lonely... 😢', alert:'on alert! ⚠' };
+  $('mood').textContent = moods[state.mood] || moods.neutral;
+}
 
 function say(text) { $('speech').textContent = text; }
 
 function doAction(type) {
+  const mult = creature ? creature.stats.xpMultiplier : 1;
   if (type === 'feed') {
-    state.energy = Math.min(100, state.energy + 20);
-    state.xp += 3;
-    say("Mmm, electrons! ⚡ Thanks!");
+    const max = creature ? creature.stats.maxEnergy : 100;
+    state.energy = Math.min(max, state.energy + 20);
+    state.xp += Math.floor(3 * mult);
+    say("Mmm, electrons! ⚡");
   } else if (type === 'play') {
-    state.happiness = Math.min(100, state.happiness + 20);
-    state.xp += 3;
+    const max = creature ? creature.stats.maxHappiness : 100;
+    state.happiness = Math.min(max, state.happiness + 20);
+    state.xp += Math.floor(3 * mult);
     say("Wheee! 🎉");
   } else if (type === 'pet') {
-    state.bond = Math.min(100, state.bond + 10);
-    state.happiness = Math.min(100, state.happiness + 10);
-    state.xp += 5;
-    say("*purrs digitally* 💚💚💚");
+    const max = creature ? creature.stats.maxBond : 100;
+    state.bond = Math.min(max, state.bond + 10);
+    state.happiness = Math.min(creature ? creature.stats.maxHappiness : 100, state.happiness + 10);
+    state.xp += Math.floor(5 * mult);
+    say("*purrs digitally* 💚");
   }
   state.mood = 'happy';
   checkLevelUp();
   updateUI();
+  ipcRenderer.send('action-performed', type);
 }
 
 function checkLevelUp() {
@@ -265,37 +434,60 @@ function checkLevelUp() {
   }
 }
 
-// Chat
+// === Stat Decay ===
+setInterval(() => {
+  const decay = creature ? creature.stats.decayRate : 1;
+  const minStat = creature?.stats?.minStat || 0;
+  state.energy = Math.max(minStat, state.energy - Math.floor(Math.random() * 3 * decay));
+  state.happiness = Math.max(minStat, state.happiness - Math.floor(Math.random() * 2 * decay));
+
+  if (state.energy < 20) { state.mood = 'tired'; say(`Running low on energy... 😴`); }
+  else if (state.happiness < 30) { state.mood = 'sad'; say(`Feeling lonely... 😢`); }
+  else if (state.energy > 60 && state.happiness > 60) state.mood = 'happy';
+
+  updateUI();
+}, 30000);
+
+// === System Stats ===
+setInterval(() => {
+  const cpus = os.cpus();
+  const cpuAvg = cpus.reduce((s, c) => {
+    const t = Object.values(c.times).reduce((a, b) => a + b, 0);
+    return s + (1 - c.times.idle / t) * 100;
+  }, 0) / cpus.length;
+  const ramPct = (1 - os.freemem() / os.totalmem()) * 100;
+  $('sys').textContent = `CPU ${cpuAvg.toFixed(0)}% | RAM ${ramPct.toFixed(0)}% | Lv.${state.level}`;
+  if (cpuAvg > 30 && creature) state.energy = Math.min(creature.stats.maxEnergy, state.energy + 1);
+  ipcRenderer.send('system-stats', { cpu: cpuAvg, ram: ramPct });
+}, 5000);
+
+// === Chat ===
 $('chat').addEventListener('keydown', async (e) => {
   if (e.key !== 'Enter') return;
   const text = e.target.value.trim();
   if (!text) return;
   e.target.value = '';
 
-  state.bond = Math.min(100, state.bond + 3);
-  state.happiness = Math.min(100, state.happiness + 5);
-  state.xp += 5;
+  const mult = creature ? creature.stats.xpMultiplier : 1;
+  state.bond = Math.min(creature ? creature.stats.maxBond : 100, state.bond + 3);
+  state.happiness = Math.min(creature ? creature.stats.maxHappiness : 100, state.happiness + 5);
+  state.xp += Math.floor(5 * mult);
   checkLevelUp();
 
   say('Thinking... 🤔');
   updateUI();
 
   try {
-    // Send message + current state — main process adds memory context
     const response = await ipcRenderer.invoke('chat', text, state);
     say(response.trim());
     ipcRenderer.send('action-performed', 'chat');
   } catch (err) {
     say(`⚠ ${err.message}`);
-    state.mood = 'sad';
-    updateUI();
+    state.mood = 'sad'; updateUI();
   }
 });
 
-// Handle tray actions
-ipcRenderer.on('action', (event, type) => doAction(type));
-
-// Handle game master events (proactive ARIA)
+// === Game Events ===
 ipcRenderer.on('game-event', (event, data) => {
   say(data.message);
   if (data.mood) state.mood = data.mood;
@@ -303,47 +495,54 @@ ipcRenderer.on('game-event', (event, data) => {
   updateUI();
 });
 
-// Sync state to main process
-setInterval(() => ipcRenderer.send('state-sync', state), 5000);
+ipcRenderer.on('action', (event, type) => doAction(type));
 
-// Send system stats to main
+// === State Sync ===
 setInterval(() => {
-  const cpus = os.cpus();
-  const cpuAvg = cpus.reduce((sum, c) => {
-    const total = Object.values(c.times).reduce((a, b) => a + b, 0);
-    return sum + (1 - c.times.idle / total) * 100;
-  }, 0) / cpus.length;
-  const ramPct = (1 - os.freemem() / os.totalmem()) * 100;
-  ipcRenderer.send('system-stats', { cpu: cpuAvg, ram: ramPct });
-}, 10000);
+  ipcRenderer.send('state-sync', state);
+  localStorage.setItem('aria-state', JSON.stringify(state));
+}, 5000);
 
-// Report actions for challenge tracking
-function reportAction(action) { ipcRenderer.send('action-performed', action); }
-
-// Save/load state
-function saveState() { localStorage.setItem('aria-state', JSON.stringify(state)); }
-function loadState() {
-  const saved = localStorage.getItem('aria-state');
-  if (saved) { Object.assign(state, JSON.parse(saved)); }
+// === Settings ===
+function toggleSettings() {
+  const panel = $('settings');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
+    ipcRenderer.invoke('get-memory').then(mem => {
+      $('chats-display').textContent = mem.totalChats;
+      $('days-display').textContent = mem.daysTogether;
+      $('streak-display').textContent = mem.streak;
+    }).catch(() => {});
+  }
 }
-loadState();
-updateUI();
-setInterval(saveState, 10000);
 
-// Load memory info for greeting
+function reroll() {
+  const seed = String(Date.now());
+  toggleSettings();
+  showUnbox(seed);
+}
+
+function applySeed() {
+  const seed = $('custom-seed').value.trim();
+  if (!seed) return;
+  toggleSettings();
+  showUnbox(seed);
+}
+
+// === Memory Greeting ===
 (async () => {
   try {
     const mem = await ipcRenderer.invoke('get-memory');
-    if (mem.daysTogether > 0 && mem.streak > 1) {
-      say(`Welcome back, ${mem.ownerName}! ${mem.streak}-day streak! 🔥`);
-    } else if (mem.totalChats > 20) {
-      say(`Hey ${mem.ownerName}! Good to see you again. 💚`);
-    } else {
-      say("Online and vibing! ✨");
+    if (creature) {
+      if (mem.streak > 1) say(`Welcome back, ${mem.ownerName}! ${mem.streak}-day streak! 🔥`);
+      else if (mem.totalChats > 20) say(`Hey ${mem.ownerName}! ${creature.name} missed you. 💚`);
+      else say(`${creature.name} is online! ✨`);
     }
-  } catch { say("Online and vibing! ✨"); }
+  } catch { /* first launch */ }
 })();
-</script>
 
+// === Boot ===
+init();
+</script>
 </body>
 </html>

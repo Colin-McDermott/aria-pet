@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Tray, Menu, screen, ipcMain, nativeImage } = require('electron');
+const { app, BrowserWindow, Tray, Menu, screen, ipcMain, nativeImage, globalShortcut } = require('electron');
 const path = require('path');
 const { AriaMemory } = require('./memory');
 const { GameMaster } = require('./gamemaster');
+const { generateCreature } = require('./creature');
 
 let mainWindow = null;
 let tray = null;
@@ -76,6 +77,17 @@ app.whenReady().then(() => {
   // Init memory
   memory = new AriaMemory();
   gameMaster = new GameMaster(memory, state);
+
+  // Global toggle shortcut (configurable — default F6)
+  const hotkey = memory.data.settings?.hotkey || 'F6';
+  try {
+    globalShortcut.register(hotkey, () => {
+      if (mainWindow) mainWindow.isVisible() ? mainWindow.hide() : mainWindow.show();
+    });
+    console.log(`[ARIA] Global hotkey: ${hotkey}`);
+  } catch (e) {
+    console.log(`[ARIA] Could not register hotkey ${hotkey}: ${e.message}`);
+  }
 
   createWindow();
   createTray();
